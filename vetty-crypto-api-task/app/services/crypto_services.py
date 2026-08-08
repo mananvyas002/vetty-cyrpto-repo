@@ -52,3 +52,10 @@ class CryptoService:
             None,
         )
 
+    async def categories(self) -> list[dict[str, Any]]:
+        return await self._cached(
+            "categories:list",
+            self.client.categories_list,
+            None,
+        )
+

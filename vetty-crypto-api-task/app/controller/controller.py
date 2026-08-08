@@ -4,7 +4,7 @@ from typing import AsyncIterator
 from fastapi import Depends, FastAPI, Query, Request
 from config import settings
 from app.dependencies import require_api_key
-from app.models.models import Coin, HealthResponse, PaginatedResponse
+from app.models.models import Category, Coin, HealthResponse, PaginatedResponse
 from app.services.crypto_services import CryptoService
 from app.utils.coingecko import CoinGeckoClient
 from app.utils.cache import TTLCache
@@ -71,5 +71,23 @@ async def list_coins(
     items = [
         Coin(id=x["id"], name=x["name"], symbol=x["symbol"])
         for x in await request.app.state.crypto.coins()
+    ]
+    return paginate(items, page_num, per_page)
+
+
+@app.get(
+    "/categories",
+    response_model=PaginatedResponse,
+    dependencies=[Depends(require_api_key)],
+    tags=["Categories"],
+)
+async def list_categories(
+    request: Request,
+    page_num: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1, le=100),
+) -> PaginatedResponse:
+    items = [
+        Category(id=x["category_id"], name=x["name"])
+        for x in await request.app.state.crypto.categories()
     ]
     return paginate(items, page_num, per_page)

@@ -16,6 +16,11 @@ class Coin(BaseModel):
     symbol: str
 
 
+class Category(BaseModel):
+    id: str
+    name: str
+
+
 class PaginatedResponse(BaseModel):
     page_num: int = Field(ge=1)
     per_page: int = Field(ge=1)
