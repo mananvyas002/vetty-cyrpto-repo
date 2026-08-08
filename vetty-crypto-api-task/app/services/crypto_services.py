@@ -45,3 +45,10 @@ class CryptoService:
         except Exception:
             return "unreachable", None
 
+    async def coins(self) -> list[dict[str, Any]]:
+        return await self._cached(
+            "coins:list",
+            self.client.coins_list,
+            None,
+        )
+

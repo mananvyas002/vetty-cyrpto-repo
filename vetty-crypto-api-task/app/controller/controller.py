@@ -1,9 +1,10 @@
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Query, Request
 from config import settings
-from app.models.models import HealthResponse
+from app.dependencies import require_api_key
+from app.models.models import Coin, HealthResponse, PaginatedResponse
 from app.services.crypto_services import CryptoService
 from app.utils.coingecko import CoinGeckoClient
 from app.utils.cache import TTLCache
@@ -44,3 +45,31 @@ async def health(request: Request) -> HealthResponse:
         cryptocurrency_service=external_status,
         cryptocurrency_service_version=external_version,
     )
+
+
+def paginate(items: list, page_num: int, per_page: int) -> PaginatedResponse:
+    start = (page_num - 1) * per_page
+    return PaginatedResponse(
+        page_num=page_num,
+        per_page=per_page,
+        total=len(items),
+        data=items[start : start + per_page],
+    )
+
+
+@app.get(
+    "/coins",
+    response_model=PaginatedResponse,
+    dependencies=[Depends(require_api_key)],
+    tags=["Coins"],
+)
+async def list_coins(
+    request: Request,
+    page_num: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1, le=100),
+) -> PaginatedResponse:
+    items = [
+        Coin(id=x["id"], name=x["name"], symbol=x["symbol"])
+        for x in await request.app.state.crypto.coins()
+    ]
+    return paginate(items, page_num, per_page)
