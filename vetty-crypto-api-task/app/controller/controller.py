@@ -1,9 +1,13 @@
+import logging
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
-from config import settings
+from fastapi.responses import JSONResponse
+
 from app.dependencies import require_api_key
+from app.exceptions import ExternalServiceError, ExternalServiceTimeout
+from app.logging_config import configure_logging
 from app.models.models import (
     Category,
     Coin,
@@ -12,8 +16,12 @@ from app.models.models import (
     PaginatedResponse,
 )
 from app.services.crypto_services import CryptoService
-from app.utils.coingecko import CoinGeckoClient
 from app.utils.cache import TTLCache
+from app.utils.coingecko import CoinGeckoClient
+from config import settings
+
+configure_logging(settings.log_level)
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -40,6 +48,50 @@ app = FastAPI(
     ),
     lifespan=lifespan,
 )
+
+
+@app.exception_handler(ExternalServiceTimeout)
+async def external_timeout_handler(
+    _: Request, exc: ExternalServiceTimeout
+) -> JSONResponse:
+    logger.warning("external_service_timeout")
+    return JSONResponse(
+        status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+        content={
+            "error": {
+                "code": "EXTERNAL_TIMEOUT",
+                "message": "Cryptocurrency service timed out",
+            }
+        },
+    )
+
+
+@app.exception_handler(ExternalServiceError)
+async def external_error_handler(_: Request, exc: ExternalServiceError) -> JSONResponse:
+    logger.error("external_service_failure")
+    return JSONResponse(
+        status_code=status.HTTP_502_BAD_GATEWAY,
+        content={
+            "error": {
+                "code": "EXTERNAL_SERVICE_ERROR",
+                "message": "Cryptocurrency service unavailable",
+            }
+        },
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(_: Request, exc: Exception) -> JSONResponse:
+    logger.exception("unhandled_exception", extra={"error": str(exc)})
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "error": {
+                "code": "INTERNAL_SERVER_ERROR",
+                "message": "Internal server error",
+            }
+        },
+    )
 
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])

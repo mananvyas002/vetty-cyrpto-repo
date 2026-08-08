@@ -2,3 +2,6 @@
 __pycache__/
 *.pyc
 .env
+.coverage
+.pytest_cache/
+.ruff_cache/

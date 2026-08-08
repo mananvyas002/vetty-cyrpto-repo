@@ -1,7 +1,9 @@
 import logging
 from typing import Any
+
 import httpx
 
+from app.exceptions import ExternalServiceError, ExternalServiceTimeout
 
 logger = logging.getLogger(__name__)
 
@@ -24,13 +26,13 @@ class CoinGeckoClient:
                 return response.json()
         except httpx.TimeoutException as exc:
             logger.warning("external_api_timeout", extra={"path": path})
-            raise
+            raise ExternalServiceTimeout from exc
         except httpx.HTTPError as exc:
             logger.error(
                 "external_api_error",
                 extra={"path": path, "error": str(exc)},
             )
-            raise
+            raise ExternalServiceError from exc
 
     async def ping(self) -> dict[str, Any]:
         return await self._get("/ping")
