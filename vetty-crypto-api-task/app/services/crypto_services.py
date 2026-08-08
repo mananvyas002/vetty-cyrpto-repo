@@ -59,3 +59,18 @@ class CryptoService:
             None,
         )
 
+    async def markets(
+        self, coin_id: str | None, category: str | None
+    ) -> list[dict[str, Any]]:
+        key = f"markets:{coin_id or ''}:{category or ''}"
+        return await self._cached(
+            key,
+            lambda: self.client.markets(coin_id, category),
+            {
+                "event": "market_data_retrieved",
+                "source": "coingecko",
+                "coin_id": coin_id,
+                "category": category,
+            },
+        )
+

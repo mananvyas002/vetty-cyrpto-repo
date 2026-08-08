@@ -1,10 +1,16 @@
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
-from fastapi import Depends, FastAPI, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 from config import settings
 from app.dependencies import require_api_key
-from app.models.models import Category, Coin, HealthResponse, PaginatedResponse
+from app.models.models import (
+    Category,
+    Coin,
+    HealthResponse,
+    MarketItem,
+    PaginatedResponse,
+)
 from app.services.crypto_services import CryptoService
 from app.utils.coingecko import CoinGeckoClient
 from app.utils.cache import TTLCache
@@ -90,4 +96,30 @@ async def list_categories(
         Category(id=x["category_id"], name=x["name"])
         for x in await request.app.state.crypto.categories()
     ]
+    return paginate(items, page_num, per_page)
+
+
+@app.get(
+    "/markets",
+    response_model=PaginatedResponse,
+    dependencies=[Depends(require_api_key)],
+    tags=["Market Data"],
+)
+async def market_data(
+    request: Request,
+    coin_id: str | None = Query(default=None, min_length=1),
+    category: str | None = Query(default=None, min_length=1),
+    page_num: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1, le=100),
+) -> PaginatedResponse:
+    if not coin_id and not category:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "VALIDATION_ERROR",
+                "message": "coin_id or category is required",
+            },
+        )
+    raw_items = await request.app.state.crypto.markets(coin_id, category)
+    items = [MarketItem.model_validate(x) for x in raw_items]
     return paginate(items, page_num, per_page)

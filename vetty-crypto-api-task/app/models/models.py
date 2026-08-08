@@ -21,6 +21,16 @@ class Category(BaseModel):
     name: str
 
 
+class MarketItem(BaseModel):
+    id: str
+    symbol: str
+    name: str
+    current_price: float | None = None
+    market_cap: float | None = None
+    market_cap_rank: int | None = None
+    price_change_percentage_24h: float | None = None
+
+
 class PaginatedResponse(BaseModel):
     page_num: int = Field(ge=1)
     per_page: int = Field(ge=1)
